@@ -1,9 +1,11 @@
 import socket
 import sys
+import select
 #Port Number: 12483
 
 PORT = 12483 #define port constant
 IP_ADDRESS = '127.0.0.1' #Define IP address
+
 
 User_ID = ''
 
@@ -15,6 +17,7 @@ except:
 
 
 def main():
+    logged_In = False
     print("My chat Room Client. Version One.")
     print("Commands: login, send, logout, newuser")
     #Ask the user what they want to do
@@ -24,82 +27,98 @@ def main():
     result_Code = -1 #User has not connected to server
 
     try:
-        sobj.connect(IP_ADDRESS, PORT)
+        sobj.connect((IP_ADDRESS, PORT))
+        sobj.settimeout(2)
     except:
         print("Unable to connect to server")
         exit()
 
     while True:
         try:
-            usr_input = input("")
-            result_Code = menu(result_Code, usr_input)
-        except:
-            print("An error has occured")
+            usr_input = input("--> ")
+            logged_In = menu(usr_input, logged_In)
+            msg = sobj.recv(2048).decode("utf8")
+            print(msg)
+
+        except Exception as error:
+            if(error.args[0]!="timed out"):
+                print("Error: ", error)
     
     sobj.close()
 
 
-#Checks the input of the user
-def menu(result_Code, usr_input):
-    parse_string = usr_input.split()[0]
-    if(parse_string=="login"):
-        if(result_Code == -1):
-            test_var = login(usr_input().split[1], usr_input().split[2])
-            if(test_var==1):
-                return 0 #User has successfully logged onto the server
-            else:
-                return -1 #User was unable to log onto the server, function login will display error
-        else:
-            print("ERROR: User is already logged in")
-            return -1
-    elif(parse_string =="newuser"):
-        test_var = new_user(usr_input().split[1], usr_input().split[2])
-        if(test_var==1):
-            return 0 #User has successfully made a new user
-        else:
-            return -1 #User was unable to make a new user
-    elif(parse_string == "send"):
-        if(result_Code ==-1):
-            print("Error: You must login first!")
-        else:
-            test_var = send_msg(usr_input)
-            if(test_var==1):
-                return 0 #User has successfully sent a message
-            else:
-                return 0 #User was unable to send a message, Error message will be displayed in send function
-    elif(parse_string == "logout"):
-        if(result_Code == 0):
-            logout()
-            return -1
-        else:
-            print("You are already logged out!")
-            return -1
-    else:
-        print("Error unknown command!")
-        return result_Code
-
-
 def send_msg(usr_input):
-    message = usr_input.split('',1)
-    sobj.sendall(message)
+    sobj.sendall(usr_input.encode("utf8"))
 
-
+def logout():
+    sobj.sendall("logout".encode("utf8"))
+    if sobj.recv(2048).decode("utf8")== "Logging out user":
+        logged_In = False
+        print("Successfully logged out")
 
 #Login to the server by passing userID and password, will return error if unable to login
-def login(userID, password):
-    
-    sobj.send(userID,password)
-    result_Code = 
+def login(userID, password, usr_input):
+    sobj.send(usr_input.encode("utf8"))
+    msg = sobj.recv(2048).decode("utf8")
+    print(msg)
+    if "Error" in msg:
+        return False
+    else:
+        return True
 
 #Creates new user
-def new_User(userID, password):
-    if(len(UserID)>32):
+def new_User(userID, password, usr_input):
+    print("In new user")
+    if(len(userID)>32):
         print("Error UserID is too long. UserID must be less than 32 characters")
         return -1
     elif(len(password)<4 or len(password)>8):
         print("Error: Password must be between 4 and 8 characters in length")
         return -1
     else:
+        sobj.sendall(usr_input.encode("utf8"))
+        
+
+#Checks the input of the user
+def menu(usr_input, logged_In):
+
+    parse_string = usr_input.split()[0]
+    wordCount = len(usr_input.split())
+    print(wordCount)
+
+    if(parse_string=="login"):
+        if(logged_In == False):
+            logged_In = login(usr_input.split()[1], usr_input.split()[2], usr_input)
+            if(logged_In==True):
+                print("Successfully logged onto server")
+                
+        else:
+            print("ERROR: User is already logged in")
+            
+    elif(parse_string =="newuser"):
+        if(logged_In == False):
+            if(wordCount==3):
+                new_User(usr_input.split()[1], usr_input.split()[2], usr_input)
+            else:
+                print("Incorrect number of arguments!")
+        else:
+            print("Error: Must be logged out to create new account")
+            
+    elif(parse_string == "send"):
+        if(logged_In ==False):
+            print("Error: You must login first!")
+        else:
+            send_msg(usr_input)
+            
+    elif(parse_string == "logout"):
+        if(logged_In == True):
+            logout()
+        else:
+            print("You are already logged out!")
+    else:
+        print("Error unknown command!")
+    return logged_In
+        
 
 #Call main
 main()

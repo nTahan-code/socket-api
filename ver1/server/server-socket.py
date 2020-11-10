@@ -13,19 +13,22 @@ def main():
     #Create Socket
 
     try:
-        sobj.bind(host,port)
+        sobj.bind((IP,PORT))
     except:
         print("Could not bind to port:",PORT)
         sys.exit()
 
     sobj.listen(8)
 
+    print("Chat room Version 1 server up and running!")
+
     while True:
         conn, address = sobj.accept() #Get the connection object and the address used by the client
         try:
             client_connect(conn, address)
-        except:
-            print("Could not establish connection with the client")
+        except Exception as error:
+            print("Error: ", error)
+    sobj.close()
 
 def client_connect(connection, address):
     connected = True
@@ -34,73 +37,84 @@ def client_connect(connection, address):
     user_name = ""
     while connected:
         c_input = receive_Client_data(connection)
+        print(c_input)
+        msg_length = len(c_input.split())
         #Outside if statements test for commands
-        if(c_input.split(0)=="login"):
+        if(c_input.split()[0]=="login"):
             if(logged_in == False):
-                name=usr_login(c_input.split(1), c_input.split(2))
-                if(name == "null"):
-                    print("Unable to login")
-                    connection.sendall("Error, unable to login. Please verify user login actually exists!".encode("utf8"))
+                if(msg_length ==3):
+                    name=usr_login(c_input.split()[1], c_input.split()[2])
+                    if(name == "null"):
+                        print("Unable to login")
+                        connection.sendall("Error, unable to login. Please verify user login actually exists!".encode("utf8"))
+                    else:
+                        logged_in=True
+                        connection.sendall(("Successfully logged in as "+ c_input.split()[1]).encode("utf8"))
+                        user_name = c_input.split()[1]
                 else:
-                    logged_in=True
-                    connection.sendall("Successfully logged in as".encode("utf8"))
-                    user_name = c_input.split(1)
-        elif(c_input.split(0)=="send"):
+                    connection.sendall("Invalid amount of arguments sent!".encode("utf8"))
+        elif(c_input.split()[0]=="send"):
             if(logged_in== True):
-                string = user_name + " " + c_input.split(' ',1)[1] #Appends username and user msg
+                string = user_name + ": " + c_input.split(' ',1)[1] #Appends username and user msg
                 connection.sendall(string.encode("utf8"))
             else:
                 connection.sendall("You must be logged in to send messages".encode("utf8"))
-        elif(c_input.split(0)="logout"):
+        elif(c_input.split()[0]=="logout"):
             if(logged_in== True):
                 connection.sendall("Logging out user".encode("utf8"))
                 connection.close()
                 connected = False
             else:
                 connection.sendall("Error! User must be logged in before logging out".encode("utf8"))
-        elif(c_input.split(0)=="newuser"):
+        elif(c_input.split()[0]=="newuser"):
             if(logged_in==False):
-                testvar = new_user(c_input.split(1), c_input.split(2)) #Calls the new user function, checks to see if user already exists
-                if(testvar=="null"):
-                    connection.sendall("Error! User account was unable to be created".encode("utf8"))
+                if(msg_length==3):
+                    testvar = new_user(c_input.split()[1], c_input.split()[2]) #Calls the new user function, checks to see if user already exists
+                    if(testvar=="null"):
+                        connection.sendall("Error! User account was unable to be created".encode("utf8"))
+                    else:
+                        connection.sendall("User account successfully created!".encode("utf8"))
                 else:
-                    connection.sendall("User account successfully created!".encode("utf8"))
+                    connection.sendall("Invalid amount of arguments sent!".encode("utf8"))
                 
 
 
 def new_user(user_name, password):
     dictionary = get_dictionary()
+    print(dictionary)
     if user_name in dictionary:
         return "null"
     else:
         append_User(user_name, password)
         return user_name
+        print("Successfully created new user")
 
 def append_User(user_name, password):
     try:
         filePtr = open("users.txt","a")
-        filePtr.write(user_name + " " + password)
+        filePtr.write(user_name + " " + password + " \n")
         filePtr.close()
     except Exception as error:
         print("Error: ", error)
 
 def usr_login(user_name, password):
     dictionary = get_dictionary()
+    print(dictionary)
     if user_name in dictionary:
         reference_password = dictionary[user_name]
         if(reference_password == password):
             return user_name
         else:
             return "null"
+    return "null"
             
 def get_dictionary():
     try:
         filePtr = open("users.txt","r")
-        file_lines = filePtr.readlines()
         dictionary = {} #Stores the usernames and passwords in a dictionary
 
-        for line in file_lines:
-            dictionary[line.strip(0)] = line.strip(1)
+        for line in filePtr:
+            dictionary[line.split()[0]] = line.split()[1]
         
         filePtr.close()
     except Exception as error:
@@ -116,9 +130,8 @@ def receive_Client_data(connection):
     if(c_input_length > MAX_BUFFER_SIZE):
         print("The size received is greater than Max allotted size") 
 
-    decode_input = client_input.decode("utf-8").rstrip() #Transfers the input into readable text
-    final = process_input(decode_input)
+    decode_input = c_input.decode("utf-8").rstrip() #Transfers the input into readable text
 
-    return final
+    return decode_input
 
 main()
