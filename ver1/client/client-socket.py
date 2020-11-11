@@ -1,3 +1,11 @@
+#Nicholas Tahan, November 11, 2020
+#Client Version one:
+#This client will connect to a server. Only one client can be connected to the server at a single time
+#The user can enter the following commands:
+# 1. login UserID, password - logs in the user, assuming the account already exists and the userID and password match
+# 2. logout - logs the user out of the server, disconnects from the server
+# 3. newuser userID password- creates a new user account, assuming the userID is not already taken
+# 4. send [message here] - send a message to the server
 import socket
 import sys
 import select
@@ -6,6 +14,8 @@ import select
 PORT = 12483 #define port constant
 IP_ADDRESS = '127.0.0.1' #Define IP address
 
+global endSession
+endSession = False #keeps track if the user wants to disconnect from the server
 
 User_ID = ''
 
@@ -20,37 +30,39 @@ def main():
     logged_In = False
     print("My chat Room Client. Version One.")
     print("Commands: login, send, logout, newuser")
-    #Ask the user what they want to do
-    #Result code list:
-    # -1 : user has not logged on to server
-    # 0 : user has logged onto the server
-    result_Code = -1 #User has not connected to server
 
     try:
-        sobj.connect((IP_ADDRESS, PORT))
-        sobj.settimeout(2)
+        sobj.connect((IP_ADDRESS, PORT)) #connects to the server
+        sobj.settimeout(2) #sets server timeout
     except:
         print("Unable to connect to server")
         exit()
 
+    #While loop will accept input from the user and try to receive user data.
     while True:
         try:
-            usr_input = input("--> ")
+            usr_input = input("--> ") #Gets input from the user
             logged_In = menu(usr_input, logged_In)
             msg = sobj.recv(2048).decode("utf8")
             print(msg)
 
+            if(endSession == True):
+                print("Ending program")
+                break
         except Exception as error:
             if(error.args[0]!="timed out"):
                 print("Error: ", error)
     
     sobj.close()
 
-
+#Sends a message to the server
 def send_msg(usr_input):
     sobj.sendall(usr_input.encode("utf8"))
 
+#Logs the user out from the server
 def logout():
+    global endSession
+    endSession = True #This will end the program
     sobj.sendall("logout".encode("utf8"))
     if sobj.recv(2048).decode("utf8")== "Logging out user":
         logged_In = False
@@ -66,7 +78,7 @@ def login(userID, password, usr_input):
     else:
         return True
 
-#Creates new user
+#Creates new user, assuming all the error checking succeeds, and if userID is not already taken
 def new_User(userID, password, usr_input):
     print("In new user")
     if(len(userID)>32):
@@ -88,10 +100,12 @@ def menu(usr_input, logged_In):
 
     if(parse_string=="login"):
         if(logged_In == False):
-            logged_In = login(usr_input.split()[1], usr_input.split()[2], usr_input)
-            if(logged_In==True):
-                print("Successfully logged onto server")
-                
+            if(wordCount == 3):
+                logged_In = login(usr_input.split()[1], usr_input.split()[2], usr_input)
+                if(logged_In==True):
+                    print("Successfully logged onto server")  
+            else:
+                print("Incorrect number of arguments")
         else:
             print("ERROR: User is already logged in")
             
@@ -105,10 +119,13 @@ def menu(usr_input, logged_In):
             print("Error: Must be logged out to create new account")
             
     elif(parse_string == "send"):
-        if(logged_In ==False):
-            print("Error: You must login first!")
+        if(wordCount >= 2):
+            if(logged_In ==False):
+                print("Error: You must login first!")
+            else:
+                send_msg(usr_input)
         else:
-            send_msg(usr_input)
+            print("Incorrect number of arguments")
             
     elif(parse_string == "logout"):
         if(logged_In == True):

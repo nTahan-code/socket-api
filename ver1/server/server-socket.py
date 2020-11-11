@@ -1,3 +1,11 @@
+#Nicholas Tahan, November 11, 2020
+#Server Version one:
+#This server will connect to a client. Only one client can be connected to the server at a single time
+#The user can enter the following commands:
+# 1. login UserID, password - logs in the user, assuming the account already exists and the userID and password match
+# 2. logout - logs the user out of the server, disconnects from the server
+# 3. newuser userID password- creates a new user account, assuming the userID is not already taken
+# 4. send [message here] - send a message to the server
 import socket
 import sys
 import traceback
@@ -30,6 +38,7 @@ def main():
             print("Error: ", error)
     sobj.close()
 
+#
 def client_connect(connection, address):
     connected = True
     logged_in = False
@@ -53,12 +62,14 @@ def client_connect(connection, address):
                         user_name = c_input.split()[1]
                 else:
                     connection.sendall("Invalid amount of arguments sent!".encode("utf8"))
+
         elif(c_input.split()[0]=="send"):
             if(logged_in== True):
                 string = user_name + ": " + c_input.split(' ',1)[1] #Appends username and user msg
                 connection.sendall(string.encode("utf8"))
             else:
                 connection.sendall("You must be logged in to send messages".encode("utf8"))
+                
         elif(c_input.split()[0]=="logout"):
             if(logged_in== True):
                 connection.sendall("Logging out user".encode("utf8"))
@@ -66,6 +77,7 @@ def client_connect(connection, address):
                 connected = False
             else:
                 connection.sendall("Error! User must be logged in before logging out".encode("utf8"))
+
         elif(c_input.split()[0]=="newuser"):
             if(logged_in==False):
                 if(msg_length==3):
@@ -78,17 +90,18 @@ def client_connect(connection, address):
                     connection.sendall("Invalid amount of arguments sent!".encode("utf8"))
                 
 
-
+#Creates a new user, assuming user_name is not already taken
 def new_user(user_name, password):
-    dictionary = get_dictionary()
+    dictionary = get_dictionary() #get_dictionary() returns a dictionary with all logins
     print(dictionary)
     if user_name in dictionary:
-        return "null"
+        return "null" #Username already exists
     else:
         append_User(user_name, password)
-        return user_name
+        return user_name #Account was successfully created
         print("Successfully created new user")
 
+#append_user() actually adds the user to the users.txt file
 def append_User(user_name, password):
     try:
         filePtr = open("users.txt","a")
@@ -97,6 +110,7 @@ def append_User(user_name, password):
     except Exception as error:
         print("Error: ", error)
 
+#usr_login will log in the user, assuming account exists, and userID and password match and existing account
 def usr_login(user_name, password):
     dictionary = get_dictionary()
     print(dictionary)
@@ -107,7 +121,8 @@ def usr_login(user_name, password):
         else:
             return "null"
     return "null"
-            
+
+#returns a dictionary full of all user account information
 def get_dictionary():
     try:
         filePtr = open("users.txt","r")
@@ -122,7 +137,7 @@ def get_dictionary():
 
     return dictionary
 
-
+#Gets the client data
 def receive_Client_data(connection):
     c_input = connection.recv(MAX_BUFFER_SIZE)
     c_input_length = sys.getsizeof(c_input)
